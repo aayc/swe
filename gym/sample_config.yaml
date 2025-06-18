@@ -1,0 +1,21 @@
+# Sample configuration file for testing the config manager
+database:
+  host: localhost
+  port: "5432"  # Bug: Should be integer, not string
+  name: testdb
+  # Missing required 'user' field
+
+api:
+  timeout: -10  # Bug: Negative timeout
+  retries: 3
+  base_url: "ftp://invalid-protocol.com"  # Bug: Invalid protocol
+
+logging:
+  level: INVALID_LEVEL  # Bug: Invalid log level
+  file: /protected/app.log  # Bug: Likely permission issues
+
+# Additional invalid configurations
+invalid_section:
+  nested:
+    deeply:
+      value: null

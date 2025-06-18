@@ -1,3 +1,3 @@
-"""SWE - Software Engineering Agent Engineer."""
+"""SWE - Software Engineering Agent"""
 
 __version__ = "0.1.0"
