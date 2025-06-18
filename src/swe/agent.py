@@ -6,7 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from swe.llm import ChatModel, Message, Role, llm_chat_conversation
-from swe.tools import edit_file, read_file, search_files
+from swe.tools import delete_file, edit_file, read_file, search_files
 from swe.tools.search_tools import find_files
 
 
@@ -37,6 +37,7 @@ class SWEAgent:
             "find_files": self._tool_find_files,
             "list_directory": self._tool_list_directory,
             "create_file": self._tool_create_file,
+            "delete_file": self._tool_delete_file,
         }
 
         # Agent loop configuration
@@ -63,6 +64,7 @@ You have access to the following tools:
 - find_files(name_pattern) - Find files by name pattern
 - list_directory(directory_path?) - List contents of a directory
 - create_file(file_path, content) - Create a new file
+- delete_file(file_path, confirm?) - Delete a file (requires confirmation by default)
 
 Current working directory: {self.working_directory}
 
@@ -455,3 +457,17 @@ IMPORTANT INSTRUCTIONS:
             return f"Successfully created {file_path}"
         except Exception as e:
             return f"Error creating {file_path}: {e}"
+
+    async def _tool_delete_file(self, file_path: str, confirm: bool = True) -> str:
+        """Delete a file tool with confirmation."""
+        try:
+            # Make path relative to working directory
+            full_path = self.working_directory / file_path
+            await delete_file(str(full_path), confirm=confirm)
+            return f"Successfully deleted {file_path}"
+        except RuntimeError as e:
+            if "cancelled" in str(e).lower():
+                return f"File deletion cancelled: {e}"
+            return f"Error deleting {file_path}: {e}"
+        except Exception as e:
+            return f"Error deleting {file_path}: {e}"

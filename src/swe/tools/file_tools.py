@@ -1,5 +1,6 @@
 """File manipulation tools for the SWE agent."""
 
+import asyncio
 from pathlib import Path
 
 import aiofiles
@@ -29,7 +30,7 @@ async def read_file(file_path: str, start_line: int | None = None, end_line: int
     if not path.is_file():
         raise ValueError(f"Path is not a file: {file_path}")
 
-    async with aiofiles.open(path, "r", encoding="utf-8") as f:
+    async with aiofiles.open(path, encoding="utf-8") as f:
         if start_line is None and end_line is None:
             content = await f.read()
             return str(content)
@@ -75,7 +76,7 @@ async def edit_file(file_path: str, old_content: str, new_content: str) -> bool:
         raise ValueError(f"Path is not a file: {file_path}")
 
     # Read the current content
-    async with aiofiles.open(path, "r", encoding="utf-8") as f:
+    async with aiofiles.open(path, encoding="utf-8") as f:
         current_content = await f.read()
 
     # Check if old_content exists in the file
@@ -117,5 +118,65 @@ async def create_file(file_path: str, content: str) -> bool:
 
     async with aiofiles.open(path, "w", encoding="utf-8") as f:
         await f.write(content)
+
+    return True
+
+
+async def delete_file(file_path: str, confirm: bool = True) -> bool:
+    """
+    Delete a file with optional confirmation.
+
+    Args:
+        file_path: Path to the file to delete
+        confirm: Whether to prompt for confirmation (default: True)
+
+    Returns:
+        True if the file was deleted successfully
+
+    Raises:
+        FileNotFoundError: If the file doesn't exist
+        ValueError: If the path is not a file
+        PermissionError: If the file can't be deleted
+        RuntimeError: If user cancels the deletion
+    """
+    path = Path(file_path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    if not path.is_file():
+        raise ValueError(f"Path is not a file: {file_path}")
+
+    if confirm:
+        # Prompt for confirmation
+        print("\n⚠️  WARNING: You are about to delete the file:")
+        print(f"   {path.absolute()}")
+
+        # Get file size for context
+        try:
+            file_size = path.stat().st_size
+            if file_size < 1024:
+                size_str = f"{file_size} bytes"
+            elif file_size < 1024 * 1024:
+                size_str = f"{file_size / 1024:.1f} KB"
+            else:
+                size_str = f"{file_size / (1024 * 1024):.1f} MB"
+            print(f"   File size: {size_str}")
+        except Exception:
+            pass
+
+        print("\n❓ Are you sure you want to delete this file? (type 'yes' to confirm): ", end="")
+
+        # Get user input in a way that works with asyncio
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(None, input)
+
+        if response.lower().strip() != "yes":
+            raise RuntimeError("File deletion cancelled by user")
+
+        print("✅ Deletion confirmed.")
+
+    # Delete the file
+    path.unlink()
 
     return True
