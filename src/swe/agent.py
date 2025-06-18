@@ -166,7 +166,7 @@ IMPORTANT INSTRUCTIONS:
         """Get response from LLM using the conversation messages with streaming."""
         # Use streaming conversation-based chat
         if self.stream_callback:
-            # Stream the response, but collect full content first to clean tool calls
+            # Stream the response in real-time
             full_content = ""
             stream_iterator = await llm_chat_conversation(
                 messages=messages,
@@ -176,16 +176,12 @@ IMPORTANT INSTRUCTIONS:
                 stream=True,
             )
 
-            # Collect all chunks first
+            # Stream chunks in real-time
             async for chunk in stream_iterator:
                 if chunk.content:
                     full_content += chunk.content
-
-            # Clean up tool calls before streaming
-            cleaned_content = self._clean_tool_call_display(full_content)
-
-            # Stream the cleaned content
-            self.stream_callback(cleaned_content)
+                    # Stream each chunk immediately
+                    self.stream_callback(chunk.content)
 
             # Create a mock response object with the full content
             class MockResponse:
