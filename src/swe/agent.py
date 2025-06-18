@@ -6,7 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from swe.llm import ChatModel, Message, Role, llm_chat_conversation
-from swe.tools import delete_file, edit_file, read_file, search_files
+from swe.tools import delete_file, edit_file, execute_command, read_file, search_files
 from swe.tools.search_tools import find_files
 
 
@@ -38,6 +38,7 @@ class SWEAgent:
             "list_directory": self._tool_list_directory,
             "create_file": self._tool_create_file,
             "delete_file": self._tool_delete_file,
+            "execute_command": self._tool_execute_command,
         }
 
         # Agent loop configuration
@@ -65,6 +66,16 @@ You have access to the following tools:
 - list_directory(directory_path?) - List contents of a directory
 - create_file(file_path, content) - Create a new file
 - delete_file(file_path, confirm?) - Delete a file (requires confirmation by default)
+- execute_command(command, working_directory?, confirm?, timeout?) - Execute terminal commands (requires confirmation by default)
+
+The execute_command tool is useful for:
+• Running tests: pytest, npm test, cargo test, make test
+• Text processing: grep, awk, sed, sort, uniq, cut
+• Network diagnostics: ping, curl, wget, netstat
+• System information: ps, df, top, uname, which
+• Build tools: make, npm build, cargo build, mvn compile
+• Git operations: git status, git log, git diff, git branch
+• Package management: npm install, pip install, apt list
 
 Current working directory: {self.working_directory}
 
@@ -471,3 +482,30 @@ IMPORTANT INSTRUCTIONS:
             return f"Error deleting {file_path}: {e}"
         except Exception as e:
             return f"Error deleting {file_path}: {e}"
+
+    async def _tool_execute_command(self, command: str, working_directory: str | None = None, confirm: bool = True, timeout: int = 30) -> str:
+        """Execute a terminal command with confirmation."""
+        try:
+            # Use provided working directory or default to agent's working directory
+            work_dir = working_directory or str(self.working_directory)
+
+            # Import safety check function
+            from swe.tools.terminal_tools import check_command_safety
+
+            # Perform basic safety check
+            is_safe, warning = await check_command_safety(command)
+            if not is_safe:
+                return f"SAFETY WARNING: {warning}\nCommand execution blocked for safety reasons."
+
+            # Execute the command
+            result = await execute_command(command=command, working_directory=work_dir, confirm=confirm, timeout=timeout)
+            return result
+
+        except RuntimeError as e:
+            if "cancelled" in str(e).lower():
+                return f"Command execution cancelled: {e}"
+            return f"Command execution failed: {e}"
+        except TimeoutError as e:
+            return f"Command timed out: {e}"
+        except Exception as e:
+            return f"Error executing command: {e}"
